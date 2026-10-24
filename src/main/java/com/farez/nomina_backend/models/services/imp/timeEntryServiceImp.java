@@ -36,7 +36,7 @@ public class timeEntryServiceImp implements ITimeEntryService {
         LocalDate workDate = timestamp.toLocalDate();
 
         // 2. Verificar que el usuario exista
-        User user = (User) userRepository.findById(request.getUserId())
+        User user = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado con ID: " + request.getUserId()));
 
         // 3. Buscar si existe un registro del día o crear uno nuevo
@@ -66,6 +66,9 @@ public class timeEntryServiceImp implements ITimeEntryService {
     @Override
     @Transactional(readOnly = true)
     public timeEntry getByUserIdAndDate(Long userId, LocalDate date) {
+        if (!userRepository.existsById(userId)){
+            throw new RuntimeException("El usuario con id " + userId + " no existe");
+        }
         return timeEntryRepository.findByUserIdAndWorkDate(userId, date)
                 .orElseThrow(() -> new RuntimeException("No se encontraron marcaciones para el usuario " + userId + " en la fecha " + date));
     }
@@ -73,6 +76,11 @@ public class timeEntryServiceImp implements ITimeEntryService {
     @Override
     @Transactional(readOnly = true)
     public List<timeEntry> getHistoryByUserId(Long userId) {
+        //verificar existencia
+        if(!userRepository.existsById(userId)){
+            throw new RuntimeException("El ususario con id " + userId+ " no existe");
+        }
+        //devuelve historia
         return timeEntryRepository.findAll().stream()
                 .filter(entry -> entry.getUser().getId().equals(userId))
                 .toList();

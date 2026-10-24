@@ -44,7 +44,7 @@ public class attendanceController {
 
     /**
      * Endpoint para consultar las marcaciones de un usuario en una fecha específica.
-     * GET /api/attendance/user/{userId}/date/{date} (Ej: /api/attendance/user/1/date/2026-10-23)
+     * GET /api/attendance/user/{userId}/date/{date} (Ejm: /api/attendance/user/1/date/2026-10-23)
      */
     @GetMapping("/user/{userId}/date/{date}")
     public ResponseEntity<?> getByUserAndDate(
@@ -63,8 +63,11 @@ public class attendanceController {
      * GET /api/attendance/user/{userId}/history
      */
     @GetMapping("/user/{userId}/history")
-    public ResponseEntity<List<timeEntry>> getHistoryByUser(@PathVariable Long userId) {
-        List<timeEntry> history = timeEntryService.getHistoryByUserId(userId);
-        return ResponseEntity.ok(history);
+    public ResponseEntity<?> getHistoryByUser(@PathVariable Long userId) {
+        try {
+            return ResponseEntity.ok(timeEntryService.getHistoryByUserId(userId));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }
     }
 }
