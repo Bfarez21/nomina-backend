@@ -4,8 +4,10 @@ import com.farez.nomina_backend.dto.clockInRequest;
 import com.farez.nomina_backend.models.dao.timeEntryRepository;
 import com.farez.nomina_backend.models.dao.userRepository;
 import com.farez.nomina_backend.models.entity.timeEntry;
-import com.farez.nomina_backend.models.entity.user;
+import com.farez.nomina_backend.models.entity.User;
 import com.farez.nomina_backend.models.services.ITimeEntryService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import org.springframework.stereotype.Service;
@@ -15,8 +17,12 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class timeEntryServiceImp implements ITimeEntryService {
+
+    @Autowired
     private  timeEntryRepository timeEntryRepository;
+    @Autowired
     private  userRepository userRepository;
 
     @Override
@@ -30,7 +36,7 @@ public class timeEntryServiceImp implements ITimeEntryService {
         LocalDate workDate = timestamp.toLocalDate();
 
         // 2. Verificar que el usuario exista
-        user user = (user) userRepository.findById(request.getUserId())
+        User user = (User) userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado con ID: " + request.getUserId()));
 
         // 3. Buscar si existe un registro del día o crear uno nuevo
