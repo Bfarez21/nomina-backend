@@ -1,12 +1,15 @@
 package com.farez.nomina_backend.controllers;
 
 import com.farez.nomina_backend.dto.userCreateRequest;
+import com.farez.nomina_backend.models.dao.userRepository;
 import com.farez.nomina_backend.models.entity.User;
 import com.farez.nomina_backend.models.services.IUserService;
+import exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -14,46 +17,31 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
+
 public class userController {
-
     @Autowired
-    private IUserService userService;
+    private PasswordEncoder passwordEncoder;
+    @Autowired
+    private userRepository userRepository;
 
-    /**
-     * Crear un nuevo empleado/usuario
-     * POST /api/users
-     */
-    @PostMapping
-    public ResponseEntity<?> createUser(@RequestBody userCreateRequest request) {
-        try {
-            User newUser = userService.createUser(request);
-            return ResponseEntity.status(HttpStatus.CREATED).body(newUser);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body("Error al crear usuario: " + e.getMessage());
-        }
-    }
 
-    /**
-     * Listar todos los empleados
-     * GET /api/users
-     */
+    //listar user
     @GetMapping
-    public ResponseEntity<List<User>> getAllUsers() {
-        return ResponseEntity.ok(userService.getAllUsers());
+    public List<User> getAllUsuarios() {
+        return userRepository.findAll();
     }
 
-    /**
-     * Obtener un usuario por ID
-     * GET /api/users/{id}
-     */
+    // buscar por id
     @GetMapping("/{id}")
-    public ResponseEntity<?> getUserById(@PathVariable Long id) {
-        try {
-            return ResponseEntity.ok(userService.getUserById(id));
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
-        }
+    public User getUserById(@PathVariable Long id) {
+        return userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado con id " + id));
     }
+
+    //crear
+    @PostMapping
+    public User createUser(@RequestBody User user) {
+        return userRepository.save(user);
+    }
+
 }

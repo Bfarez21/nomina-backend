@@ -30,6 +30,7 @@ public class AuthController {
         return ResponseEntity.ok(authResponse);
     }
 
+    @PostMapping("/register")
     private ResponseEntity<AuthResponse> register(@RequestBody RegisterRequest request){
         if (authService.isEmailAlreadyRegistered(request.getUsername())){
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new AuthResponse("correo"+ request.getUsername() + " ya registrado", null));

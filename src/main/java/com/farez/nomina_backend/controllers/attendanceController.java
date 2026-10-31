@@ -54,7 +54,9 @@ public class attendanceController {
             timeEntry entry = timeEntryService.getByUserIdAndDate(userId, date);
             return ResponseEntity.ok(entry);
         } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+            // En lugar de retornar 404 Not Found cuando no hay marcación hoy,
+            // devolvemos 200 OK con un cuerpo nulo de forma limpia.
+            return ResponseEntity.ok(null);
         }
     }
 

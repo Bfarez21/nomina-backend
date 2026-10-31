@@ -39,7 +39,7 @@ public class AuthService {
     public AuthResponse regiter(RegisterRequest request){
         User user=User.builder()
                 .username(request.getUsername())
-                .password(request.getPassword())
+                .password(passwordEncoder.encode(request.getPassword()))
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
                 .baseSalary(request.getBaseSalary())
