@@ -5,6 +5,7 @@ import com.farez.nomina_backend.models.auth.AuthResponse;
 import com.farez.nomina_backend.models.auth.LoginRequest;
 import com.farez.nomina_backend.models.auth.RegisterRequest;
 import com.farez.nomina_backend.models.dao.userRepository;
+import com.farez.nomina_backend.models.entity.Role;
 import com.farez.nomina_backend.models.entity.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -44,6 +45,7 @@ public class AuthService {
                 .lastName(request.getLastName())
                 .baseSalary(request.getBaseSalary())
                 .active(request.getActive())
+                .role(request.getRole() != null ? request.getRole() : Role.ROLE_EMPLOYEE)
                 .build();
         userRepository.save(user);
         return AuthResponse.builder()

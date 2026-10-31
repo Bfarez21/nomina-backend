@@ -1,5 +1,6 @@
 package com.farez.nomina_backend.models.auth;
 
+import com.farez.nomina_backend.models.entity.Role;
 import com.farez.nomina_backend.models.entity.User;
 import jakarta.persistence.Column;
 import lombok.AllArgsConstructor;
@@ -20,4 +21,7 @@ public class RegisterRequest {
     private Boolean active = true;
     private String username;
     private String password;
+
+    @Builder.Default
+    private Role role = Role.ROLE_EMPLOYEE;
 }
