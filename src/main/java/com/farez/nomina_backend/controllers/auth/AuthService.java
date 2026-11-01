@@ -27,12 +27,26 @@ public class AuthService {
 
     //login
     public AuthResponse login(LoginRequest loginRequest){
+
+        // busca PRIMERO
+        User user = userRepository.findByUsername(loginRequest.getUsername())
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+
         authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
         UserDetails userDetails= userRepository.findByUsername(loginRequest.getUsername())
                 .orElseThrow();
+
+        // validar password
+        if (!passwordEncoder.matches(loginRequest.getPassword(), userDetails.getPassword())) {
+            throw new RuntimeException("Contraseña incorrecta");
+        }
+
         String token = jwtService.getToken(userDetails);
         return AuthResponse.builder()
                 .token(token)
+                .id(user.getId())
+                .username(user.getUsername())
+                .role(user.getRole())
                 .build();
     }
 
@@ -48,8 +62,11 @@ public class AuthService {
                 .role(request.getRole() != null ? request.getRole() : Role.ROLE_EMPLOYEE)
                 .build();
         userRepository.save(user);
+
         return AuthResponse.builder()
                 .token(jwtService.getToken(user))
+                .username(user.getUsername())
+                .role(user.getRole())
                 .build();
     }
 

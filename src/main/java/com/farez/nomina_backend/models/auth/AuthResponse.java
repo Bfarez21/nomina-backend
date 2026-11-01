@@ -1,5 +1,6 @@
 package com.farez.nomina_backend.models.auth;
 
+import com.farez.nomina_backend.models.entity.Role;
 import com.farez.nomina_backend.models.entity.User;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -11,6 +12,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class AuthResponse {
-    String token;
-    User usuario;
+    private String token;
+    private Long id;
+    private String username;
+    private Role role;
 }

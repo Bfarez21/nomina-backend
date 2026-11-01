@@ -19,22 +19,22 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
-    private final userRepository userRepository;
+    //private final userRepository userRepository;
 
     @PostMapping("/signin")
     public ResponseEntity<AuthResponse>signIn(@RequestBody LoginRequest loginRequest){
         AuthResponse authResponse = authService.login(loginRequest);
-        User user =userRepository.findByUsername(loginRequest.getUsername())
-                .orElseThrow(()-> new RuntimeException("Usuario no encontrado"));
-        authResponse.setUsuario(user);
+//        User user =userRepository.findByUsername(loginRequest.getUsername())
+//                .orElseThrow(()-> new RuntimeException("Usuario no encontrado"));
+//        authResponse.setUsername(user);
         return ResponseEntity.ok(authResponse);
     }
 
     @PostMapping("/register")
-    private ResponseEntity<AuthResponse> register(@RequestBody RegisterRequest request){
-        if (authService.isEmailAlreadyRegistered(request.getUsername())){
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new AuthResponse("correo"+ request.getUsername() + " ya registrado", null));
+    public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
+        if (authService.isEmailAlreadyRegistered(request.getUsername())) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("El correo " + request.getUsername() + " ya está registrado");
         }
-        return ResponseEntity.ok(authService.regiter(request));
-    }
+        return ResponseEntity.ok(authService.regiter(request));}
 }
