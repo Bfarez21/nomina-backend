@@ -16,7 +16,10 @@ import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.YearMonth;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -35,41 +38,48 @@ public class PayrollServiceImp implements IPayrollService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado con ID: " + userId));
 
-        LocalDate startDate = LocalDate.of(year, month, 1);
-        LocalDate endDate = startDate.withDayOfMonth(startDate.lengthOfMonth());
+        // 1. Rango dinámico según el año y mes consultados
+        YearMonth yearMonth = YearMonth.of(year, month);
+        LocalDate startDate = yearMonth.atDay(1);
+        LocalDate endDate = yearMonth.atEndOfMonth();
 
         List<timeEntry> entries = timeEntryRepository.findByUserIdAndWorkDateBetweenOrderByWorkDateDesc(userId, startDate, endDate);
 
         long totalWorkedMinutes = 0;
         int totalLateMinutes = 0;
-        double extraHours50 = 0.0;
+        double extraHours25 = 0.0;
         double extraHours100 = 0.0;
+
+        // Registro de días únicos asistidos en el mes
+        Set<LocalDate> workedDates = new HashSet<>();
 
         for (timeEntry entry : entries) {
             LocalDate date = entry.getWorkDate();
             boolean isWeekend = (date.getDayOfWeek() == DayOfWeek.SATURDAY || date.getDayOfWeek() == DayOfWeek.SUNDAY);
 
-            // 1. Atrasos (Solo Lunes a Viernes)
-            if (!isWeekend && entry.getClockIn() != null) {
-                LocalTime clockIn = entry.getClockIn().toLocalTime();
-                LocalTime limitTime = ENTRY_TIME.plusMinutes(TOLERANCE_MINUTES);
-
-                if (clockIn.isAfter(limitTime)) {
-                    long lates = Duration.between(ENTRY_TIME, clockIn).toMinutes();
-                    totalLateMinutes += lates;
-                }
-            }
-
-            // 2. Horas Trabajadas y Extras
             if (entry.getClockIn() != null && entry.getClockOut() != null) {
+                workedDates.add(date);
+
+                // Control de Atrasos (Lunes a Viernes)
+                if (!isWeekend) {
+                    LocalTime clockIn = entry.getClockIn().toLocalTime();
+                    LocalTime limitTime = ENTRY_TIME.plusMinutes(TOLERANCE_MINUTES);
+
+                    if (clockIn.isAfter(limitTime)) {
+                        long lates = Duration.between(ENTRY_TIME, clockIn).toMinutes();
+                        totalLateMinutes += lates;
+                    }
+                }
+
+                // Horas Trabajadas
                 long dayMinutes = Duration.between(entry.getClockIn(), entry.getClockOut()).toMinutes();
 
-                // Descuento de 1 hora de almuerzo
+                // Descuento de almuerzo (si existe marcación o 1h por defecto de Lunes a Viernes)
                 if (entry.getLunchOut() != null && entry.getLunchIn() != null) {
                     long lunchMinutes = Duration.between(entry.getLunchOut(), entry.getLunchIn()).toMinutes();
                     dayMinutes -= lunchMinutes;
-                } else {
-                    dayMinutes -= 60; // Descuento estándar 1h
+                } else if (!isWeekend) {
+                    dayMinutes -= 60;
                 }
 
                 dayMinutes = Math.max(0, dayMinutes);
@@ -79,38 +89,58 @@ public class PayrollServiceImp implements IPayrollService {
                 if (isWeekend) {
                     extraHours100 += (dayMinutes / 60.0);
                 } else {
-                    if (dayMinutes > 480) { // Más de 8 horas en día normal
-                        extraHours50 += ((dayMinutes - 480) / 60.0);
+                    if (dayMinutes > 480) { // Más de 8 horas de trabajo
+                        extraHours25 += ((dayMinutes - 480) / 60.0);
                     }
                 }
             }
         }
 
-        // 3. Cálculos Monetarios
+        // 2. CÁLCULO DINÁMICO DE DÍAS LABORABLES Y FALTAS PARA CUALQUIER MES
+        int expectedWorkingDays = 0;
+        for (LocalDate date = startDate; !date.isAfter(endDate); date = date.plusDays(1)) {
+            // Contamos los días laborables esperados (Lunes a Sábado según la jornada de la empresa)
+            if (date.getDayOfWeek() != DayOfWeek.SUNDAY) {
+                expectedWorkingDays++;
+            }
+        }
+
+        // Días sin registro de asistencia en todo el mes
+        int daysWorkedCount = workedDates.size();
+        int missedDaysCount = Math.max(0, expectedWorkingDays - daysWorkedCount);
+
+        // 3. CÁLCULOS MONETARIOS
         BigDecimal baseSalary = user.getBaseSalary() != null ? user.getBaseSalary() : BigDecimal.ZERO;
-        BigDecimal hourlyRate = baseSalary.divide(new BigDecimal("160"), 4, RoundingMode.HALF_UP);
-        BigDecimal minuteRate = hourlyRate.divide(new BigDecimal("60"), 4, RoundingMode.HALF_UP);
 
-        BigDecimal lateDeduction = minuteRate.multiply(new BigDecimal(totalLateMinutes)).setScale(2, RoundingMode.HALF_UP);
+        // Tarifa por hora (Base 240 hrs) y Tarifa diaria (Base 30 días)
+        BigDecimal hourlyRate = baseSalary.divide(new BigDecimal("240"), 4, RoundingMode.HALF_UP);
+        BigDecimal dailyRate = baseSalary.divide(new BigDecimal("30"), 4, RoundingMode.HALF_UP);
 
-        BigDecimal pay50 = hourlyRate.multiply(new BigDecimal("1.50")).multiply(new BigDecimal(extraHours50));
+        // Descuento automático proporcional a los días faltados
+        BigDecimal daysDeduction = dailyRate.multiply(new BigDecimal(missedDaysCount)).setScale(2, RoundingMode.HALF_UP);
+
+        // Pago de Horas Extras
+        BigDecimal pay25 = hourlyRate.multiply(new BigDecimal("1.25")).multiply(new BigDecimal(extraHours25));
         BigDecimal pay100 = hourlyRate.multiply(new BigDecimal("2.00")).multiply(new BigDecimal(extraHours100));
-        BigDecimal overtimePay = pay50.add(pay100).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal overtimePay = pay25.add(pay100).setScale(2, RoundingMode.HALF_UP);
 
-        BigDecimal netSalary = baseSalary.add(overtimePay).subtract(lateDeduction).subtract(ADVANCE_QUINCENA).setScale(2, RoundingMode.HALF_UP);
+        // Totales de Liquidación
+        BigDecimal totalIngresos = baseSalary.add(overtimePay);
+        BigDecimal totalEgresos = ADVANCE_QUINCENA.add(daysDeduction);
+        BigDecimal netSalary = totalIngresos.subtract(totalEgresos).setScale(2, RoundingMode.HALF_UP);
 
         return PayrollSummary.builder()
                 .userId(user.getId())
                 .employeeName(user.getFirstName() + " " + user.getLastName())
                 .totalWorkedHours(Math.round((totalWorkedMinutes / 60.0) * 100.0) / 100.0)
                 .totalLateMinutes(totalLateMinutes)
-                .extraHours50(Math.round(extraHours50 * 100.0) / 100.0)
+                .extraHours25(Math.round(extraHours25 * 100.0) / 100.0)
                 .extraHours100(Math.round(extraHours100 * 100.0) / 100.0)
                 .baseSalary(baseSalary)
                 .advancePayment(ADVANCE_QUINCENA)
-                .hourlyRate(hourlyRate.setScale(2, RoundingMode.HALF_UP))
+                .hourlyRate(hourlyRate.setScale(4, RoundingMode.HALF_UP))
                 .overtimePay(overtimePay)
-                .lateDeduction(lateDeduction)
+                .dayDeduction(daysDeduction)
                 .netSalary(netSalary)
                 .build();
     }

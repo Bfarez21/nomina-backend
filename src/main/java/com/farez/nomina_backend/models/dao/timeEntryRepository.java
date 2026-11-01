@@ -5,10 +5,16 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface timeEntryRepository extends JpaRepository<timeEntry, Long> {
     // busca marcaciones en fecha dada
     Optional<timeEntry> findByUserIdAndWorkDate(Long userId, LocalDate workDate);
+    // Obtener todo el historial de un usuario ordenado por fecha descendente
+    List<timeEntry> findByUserIdOrderByWorkDateDesc(Long userId);
+
+    // Obtener historial de un usuario en un rango de fechas
+    List<timeEntry> findByUserIdAndWorkDateBetweenOrderByWorkDateDesc(Long userId, LocalDate startDate, LocalDate endDate);
 }

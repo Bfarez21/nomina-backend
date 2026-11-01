@@ -11,4 +11,5 @@ public interface ITimeEntryService {
     timeEntry registerClock(clockInRequest request); //registra las marcaciones del dia
     timeEntry getByUserIdAndDate(Long userId, LocalDate date); //consultaar marcaciones por fecha
     List<timeEntry> getHistoryByUserId(Long userId); // obtener historial marcasiones user
+    List<timeEntry> getHistoryByUserIdAndMonth(Long userId, int year, int month);
 }

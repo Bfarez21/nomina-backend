@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -24,6 +25,9 @@ public class timeEntryServiceImp implements ITimeEntryService {
     private  timeEntryRepository timeEntryRepository;
     @Autowired
     private  userRepository userRepository;
+
+    // evita doble click
+    private static final long COOLDOWN_MINUTES = 1;
 
     @Override
     @Transactional
@@ -45,8 +49,16 @@ public class timeEntryServiceImp implements ITimeEntryService {
                         .user(user)
                         .workDate(workDate)
                         .build());
+    // validar doble click
+        LocalDateTime lastClock = getLastClockTimestamp(entry);
+        if (lastClock !=null){
+            long minutesPassed = Duration.between(lastClock, timestamp).toMinutes();
+            if (minutesPassed < COOLDOWN_MINUTES){
+                throw new IllegalStateException("Ya realizaste el registro");
+            }
+        }
 
-        // 4. Lógica secuencial para asignar la marca correspondiente
+        // 5. Lógica secuencial para asignar la marca correspondiente
         if (entry.getClockIn() == null) {
             entry.setClockIn(timestamp);
         } else if (entry.getLunchOut() == null) {
@@ -59,8 +71,17 @@ public class timeEntryServiceImp implements ITimeEntryService {
             throw new IllegalStateException("El usuario ya registró las 4 marcaciones correspondientes al día de hoy.");
         }
 
-        // 5. Guardar y retornar
+        // 6. Guardar y retornar
         return timeEntryRepository.save(entry);
+    }
+
+    // Método auxiliar para obtener la última marcación registrada en el día
+    private LocalDateTime getLastClockTimestamp(timeEntry entry) {
+        if (entry.getClockOut() != null) return entry.getClockOut();
+        if (entry.getLunchIn() != null) return entry.getLunchIn();
+        if (entry.getLunchOut() != null) return entry.getLunchOut();
+        if (entry.getClockIn() != null) return entry.getClockIn();
+        return null;
     }
 
     @Override
@@ -70,7 +91,7 @@ public class timeEntryServiceImp implements ITimeEntryService {
             throw new RuntimeException("El usuario con id " + userId + " no existe");
         }
         return timeEntryRepository.findByUserIdAndWorkDate(userId, date)
-                .orElseThrow(() -> new RuntimeException("No se encontraron marcaciones para el usuario " + userId + " en la fecha " + date));
+                .orElse(null);
     }
 
     @Override
@@ -81,8 +102,17 @@ public class timeEntryServiceImp implements ITimeEntryService {
             throw new RuntimeException("El ususario con id " + userId+ " no existe");
         }
         //devuelve historia
-        return timeEntryRepository.findAll().stream()
-                .filter(entry -> entry.getUser().getId().equals(userId))
-                .toList();
+        return timeEntryRepository.findByUserIdOrderByWorkDateDesc(userId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<timeEntry> getHistoryByUserIdAndMonth(Long userId, int year, int month) {
+        if (!userRepository.existsById(userId)) {
+            throw new RuntimeException("El usuario con id " + userId + " no existe");
+        }
+        LocalDate startDate = LocalDate.of(year, month, 1);
+        LocalDate endDate = startDate.withDayOfMonth(startDate.lengthOfMonth());
+        return timeEntryRepository.findByUserIdAndWorkDateBetweenOrderByWorkDateDesc(userId, startDate, endDate);
     }
 }

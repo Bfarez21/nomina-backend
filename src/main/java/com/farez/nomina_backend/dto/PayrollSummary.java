@@ -18,7 +18,7 @@ public class PayrollSummary {
     //count horas -minutos
     private double totalWorkedHours;
     private int totalLateMinutes;
-    private double extraHours50; //suplementaria
+    private double extraHours25; //suplementaria
     private double extraHours100; //extraordinaria
 
     //valores
@@ -26,6 +26,7 @@ public class PayrollSummary {
     private BigDecimal advancePayment; //anticipo/quincena
     private BigDecimal hourlyRate; //hora normal
     private BigDecimal overtimePay; // total horas extras
-    private BigDecimal lateDeduction; // descuento atraso
+    private BigDecimal dayDeduction; // descuento dias no laborados
+    private BigDecimal lateDeduction;
     private BigDecimal netSalary; // salario liquido a recibir
 }
